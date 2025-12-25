@@ -282,10 +282,18 @@ For test-time prediction:
         2. predictions = fold_model.predict(X_test)
     3. Return average of all fold predictions
 
+IMPORTANT NOTES:
+- cv_feature_generator is ONLY applied to level 1 (base) models
+- Level 2+ stackers do NOT use cv_feature_generator because their input
+  includes OOF predictions which the generator may not handle correctly
+- Stacking still works - stacker models receive original features + L1 OOF
+  predictions, but without additional cv_feature_generator transformation
+
 This ensures:
 - NO data leakage (target encoding uses only training fold data)
 - Full AutoGluon functionality (stacking, HPO, groups, etc.)
 - Proper handling of new columns created by generator
+- Safe stacking behavior (stackers work on untransformed stacked features)
 """)
 
 
