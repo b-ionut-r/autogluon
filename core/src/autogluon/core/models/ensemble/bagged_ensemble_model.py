@@ -988,6 +988,28 @@ class BaggedEnsembleModel(AbstractModel):
             fold_fitting_strategy.schedule_fold_model_fit(**fold_fit_args)
         fold_fitting_strategy.after_all_folds_scheduled()
 
+        # DEBUG: Verify cv_feature_generator was applied to fold models (runs in main process after all folds complete)
+        if cv_feature_generator is not None:
+            try:
+                # Load first fold model to check for cv_feature_generator
+                first_fold_name = fold_fit_args_list[0]["fold_ctx"]["model_name_suffix"]
+                first_fold_model = self.load_child(first_fold_name)
+                has_cv_fg = hasattr(first_fold_model, '_cv_feature_generator') and first_fold_model._cv_feature_generator is not None
+                has_cv_enc = hasattr(first_fold_model, '_cv_feature_encoder') and first_fold_model._cv_feature_encoder is not None
+
+                if has_cv_fg and has_cv_enc:
+                    # Get feature counts from the encoder to verify transformation happened
+                    n_features_in = len(first_fold_model._cv_feature_encoder.feature_metadata_in.get_features())
+                    n_features_out = len(first_fold_model._cv_feature_encoder.feature_metadata.get_features())
+                    logger.log(20, f"\tcv_feature_generator VERIFIED: fold models have cv_fg={has_cv_fg}, cv_enc={has_cv_enc}")
+                    logger.log(20, f"\t\tFeatures: {n_features_in} input -> {n_features_out} encoded (after cv_feature_generator)")
+                elif has_cv_fg:
+                    logger.log(20, f"\tcv_feature_generator VERIFIED: fold models have cv_fg={has_cv_fg}, cv_enc={has_cv_enc}")
+                else:
+                    logger.log(30, f"\tWARNING: cv_feature_generator was passed but fold models do NOT have it! cv_fg={has_cv_fg}, cv_enc={has_cv_enc}")
+            except Exception as e:
+                logger.log(20, f"\tcv_feature_generator verification failed: {e}")
+
         # Do this to maintain model name order based on kfold split regardless of which model finished first in parallel mode
         for fold_fit_args in fold_fit_args_list:
             model_name = fold_fit_args["fold_ctx"]["model_name_suffix"]
