@@ -1020,6 +1020,19 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
                     fit_num_gpus,
                 ) = out
             assert fold_ctx is not None
+
+            # DEBUG: Verify cv_feature_generator is stored on fold model (runs in main process, not Ray workers)
+            # Load the saved fold model and check for cv_feature_generator attribute
+            if self.cv_feature_generator is not None:
+                fold_model_path = os.path.join(self.bagged_ensemble_model.path, fold_model)
+                try:
+                    loaded_fold = self.bagged_ensemble_model.load_child(fold_model)
+                    has_cv_fg = hasattr(loaded_fold, '_cv_feature_generator') and loaded_fold._cv_feature_generator is not None
+                    has_cv_enc = hasattr(loaded_fold, '_cv_feature_encoder') and loaded_fold._cv_feature_encoder is not None
+                    logger.log(20, f"Fold {fold_model} cv_feature_generator verification: has_cv_fg={has_cv_fg}, has_cv_enc={has_cv_enc}")
+                except Exception as e:
+                    logger.log(20, f"Fold {fold_model} cv_feature_generator verification failed: {e}")
+
             self._update_bagged_ensemble(
                 fold_model=fold_model,
                 pred_proba=pred_proba,
